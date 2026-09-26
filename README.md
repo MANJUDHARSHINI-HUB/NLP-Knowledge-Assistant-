@@ -26,3 +26,5 @@ If Ollama is installed and the model is available, the app can use `llama3.2:3b`
 - What is ChromaDB?
 
 The app is intentionally NLP-focused and rejects unrelated questions.
+
+Live Link : https://3txnur2tqgre46dqgqogat.streamlit.app/

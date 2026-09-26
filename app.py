@@ -1,4 +1,4 @@
-```python
+
 import os
 import streamlit as st
 from sentence_transformers import SentenceTransformer
@@ -412,4 +412,3 @@ NLP knowledge. Explain the concept clearly.
                         st.write(
                             context
                         )
-```

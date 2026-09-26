@@ -1,4 +1,3 @@
-
 import os
 import streamlit as st
 from sentence_transformers import SentenceTransformer
@@ -8,15 +7,20 @@ from nlp.scope_checker import ScopeChecker
 from rag.retriever import Retriever
 
 
-# ---------------------------------------------------------
-# STREAMLIT PAGE SETTINGS
-# ---------------------------------------------------------
+# =========================================================
+# STREAMLIT PAGE CONFIGURATION
+# =========================================================
 
 st.set_page_config(
     page_title="NLP Knowledge Assistant",
     page_icon="🧠",
     layout="centered"
 )
+
+
+# =========================================================
+# TITLE AND DESCRIPTION
+# =========================================================
 
 st.title("🧠 NLP Knowledge Assistant")
 
@@ -27,48 +31,65 @@ st.write(
 )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # LOAD EMBEDDING MODEL
-# ---------------------------------------------------------
+# =========================================================
 
 @st.cache_resource
 def load_embedding_model():
-    return SentenceTransformer("all-MiniLM-L6-v2")
+
+    model = SentenceTransformer(
+        "all-MiniLM-L6-v2"
+    )
+
+    return model
 
 
-# ---------------------------------------------------------
-# LOAD NLP COMPONENTS
-# ---------------------------------------------------------
+# =========================================================
+# LOAD PROJECT COMPONENTS
+# =========================================================
 
 @st.cache_resource
 def load_components():
 
+    # Load Sentence Transformer model
     model = load_embedding_model()
 
+    # Create NLP scope checker
     scope_checker = ScopeChecker(
         model=model,
         threshold=0.38
     )
 
+    # IMPORTANT:
+    # Retriever expects the parameter name
+    # "embedding_model", not "model".
+
     retriever = Retriever(
-        model=model
+        embedding_model=model
     )
 
     return model, scope_checker, retriever
 
 
+# Load everything
 model, scope_checker, retriever = load_components()
 
 
-# ---------------------------------------------------------
+# =========================================================
 # SIDEBAR
-# ---------------------------------------------------------
+# =========================================================
 
 with st.sidebar:
 
     st.header("📚 What can I ask?")
 
-    st.write("You can ask questions such as:")
+    st.write(
+        "This assistant is designed specifically "
+        "for NLP-related questions."
+    )
+
+    st.write("Examples:")
 
     st.write("• What is NLP?")
     st.write("• What are the types of NLP?")
@@ -87,41 +108,55 @@ with st.sidebar:
     st.divider()
 
     st.info(
-        "This assistant is specifically designed for "
-        "NLP-related questions."
+        "Questions unrelated to NLP are outside "
+        "the scope of this assistant."
     )
 
 
-# ---------------------------------------------------------
-# USER QUESTION
-# ---------------------------------------------------------
+# =========================================================
+# USER INPUT
+# =========================================================
 
 query = st.text_input(
     "💬 Ask your NLP question:",
-    placeholder="Example: How does self-attention work?"
+    placeholder="Example: What is tokenization?"
 )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # ASK BUTTON
-# ---------------------------------------------------------
+# =========================================================
 
 if st.button("Ask", type="primary"):
 
+    # -----------------------------------------------------
+    # CHECK EMPTY QUESTION
+    # -----------------------------------------------------
+
     if not query.strip():
 
-        st.warning("Please enter a question.")
+        st.warning(
+            "Please enter a question."
+        )
 
     else:
 
-        # -------------------------------------------------
-        # STEP 1: NLP SCOPE CHECK
-        # -------------------------------------------------
+        # =================================================
+        # STEP 1: CHECK NLP SCOPE
+        # =================================================
 
-        with st.spinner("Checking whether the question is NLP-related..."):
+        with st.spinner(
+            "Checking whether your question is NLP-related..."
+        ):
 
-            in_scope, score = scope_checker.check(query)
+            in_scope, score = scope_checker.check(
+                query
+            )
 
+
+        # =================================================
+        # OUT-OF-SCOPE QUESTION
+        # =================================================
 
         if not in_scope:
 
@@ -136,19 +171,29 @@ if st.button("Ask", type="primary"):
             )
 
 
+        # =================================================
+        # NLP QUESTION
+        # =================================================
+
         else:
 
-            # -------------------------------------------------
-            # STEP 2: RETRIEVE RELEVANT NLP KNOWLEDGE
-            # -------------------------------------------------
+            # =============================================
+            # STEP 2: RETRIEVE KNOWLEDGE FROM CHROMADB
+            # =============================================
 
-            with st.spinner("Searching the NLP knowledge base..."):
+            with st.spinner(
+                "Searching the NLP knowledge base..."
+            ):
 
                 results = retriever.search(
                     query,
-                    k=3
+                    k=4
                 )
 
+
+            # =============================================
+            # CHECK RETRIEVAL
+            # =============================================
 
             if not results:
 
@@ -157,172 +202,61 @@ if st.button("Ask", type="primary"):
                     "in the NLP knowledge base."
                 )
 
+
             else:
 
-                # -------------------------------------------------
+                # =========================================
                 # COMBINE RETRIEVED DOCUMENTS
-                # -------------------------------------------------
+                # =========================================
 
                 context_parts = []
 
-                for result in results:
-
-                    if isinstance(result, dict):
-
-                        document = result.get(
-                            "document",
-                            result.get("text", "")
-                        )
-
-                    else:
-
-                        document = str(result)
+                for document in results:
 
                     if document:
-                        context_parts.append(document)
-
+                        context_parts.append(
+                            str(document)
+                        )
 
                 context = "\n\n---\n\n".join(
                     context_parts
                 )
 
 
-                # -------------------------------------------------
-                # STEP 3: GROQ LLM
-                # -------------------------------------------------
+                # =========================================
+                # STEP 3: GET GROQ API KEY
+                # =========================================
 
                 try:
 
-                    # Get API key from Streamlit Secrets
-                    # or environment variable for local testing.
+                    # First try Streamlit Secrets
+                    groq_api_key = st.secrets[
+                        "GROQ_API_KEY"
+                    ]
 
-                    try:
-                        groq_api_key = st.secrets["GROQ_API_KEY"]
+                except Exception:
 
-                    except Exception:
-                        groq_api_key = os.getenv(
-                            "GROQ_API_KEY"
-                        )
-
-
-                    if not groq_api_key:
-
-                        st.error(
-                            "Groq API key is not configured. "
-                            "Add GROQ_API_KEY in Streamlit Secrets."
-                        )
-
-                    else:
-
-                        client = Groq(
-                            api_key=groq_api_key
-                        )
+                    # Allows local testing using
+                    # an environment variable
+                    groq_api_key = os.getenv(
+                        "GROQ_API_KEY"
+                    )
 
 
-                        # -------------------------------------------------
-                        # RAG PROMPT
-                        # -------------------------------------------------
+                # =========================================
+                # CHECK API KEY
+                # =========================================
 
-                        system_prompt = """
-You are an NLP Knowledge Assistant.
-
-Your job is to answer questions ONLY about
-Natural Language Processing (NLP).
-
-Use the supplied knowledge-base context as the
-main source of information.
-
-Rules:
-
-1. Answer only NLP-related questions.
-2. Do not answer unrelated questions.
-3. Do not invent information that is not supported
-   by the supplied context.
-4. Explain concepts clearly and simply.
-5. When useful, provide a small example.
-6. If the supplied context does not contain enough
-   information, clearly say that the knowledge base
-   does not contain enough information.
-7. Do not mention internal implementation details
-   unless the user asks about the project itself.
-"""
-
-
-                        user_prompt = f"""
-NLP KNOWLEDGE BASE:
-
-{context}
-
-
-USER QUESTION:
-
-{query}
-
-
-Using the knowledge above, answer the user's
-question clearly and professionally.
-"""
-
-
-                        with st.spinner(
-                            "Generating NLP explanation..."
-                        ):
-
-                            response = client.chat.completions.create(
-
-                                model="llama-3.1-8b-instant",
-
-                                messages=[
-                                    {
-                                        "role": "system",
-                                        "content": system_prompt
-                                    },
-                                    {
-                                        "role": "user",
-                                        "content": user_prompt
-                                    }
-                                ],
-
-                                temperature=0.2,
-
-                                max_tokens=800
-                            )
-
-
-                        answer = response.choices[0].message.content
-
-
-                        # -------------------------------------------------
-                        # STEP 4: DISPLAY ANSWER
-                        # -------------------------------------------------
-
-                        st.subheader("Answer")
-
-                        st.write(answer)
-
-
-                        # -------------------------------------------------
-                        # RETRIEVED CONTEXT
-                        # -------------------------------------------------
-
-                        with st.expander(
-                            "🔎 Retrieved NLP Knowledge"
-                        ):
-
-                            st.write(context)
-
-
-                except Exception as e:
+                if not groq_api_key:
 
                     st.error(
-                        "Unable to generate the answer using Groq."
+                        "Groq API key is not configured."
                     )
 
-                    st.caption(
-                        f"Error: {str(e)}"
+                    st.info(
+                        "Add GROQ_API_KEY in "
+                        "Streamlit Secrets."
                     )
-
-                    # Show retrieved information as fallback
 
                     st.subheader(
                         "Retrieved NLP Knowledge"
@@ -330,3 +264,167 @@ question clearly and professionally.
 
                     st.write(context)
 
+
+                else:
+
+                    # =====================================
+                    # STEP 4: CONNECT TO GROQ
+                    # =====================================
+
+                    try:
+
+                        client = Groq(
+                            api_key=groq_api_key
+                        )
+
+
+                        # =================================
+                        # RAG SYSTEM PROMPT
+                        # =================================
+
+                        system_prompt = """
+You are an NLP Knowledge Assistant.
+
+Your job is to answer questions only about
+Natural Language Processing (NLP).
+
+Use the supplied NLP knowledge base as the
+main source of information.
+
+Rules:
+
+1. Answer only NLP-related questions.
+
+2. Do not answer unrelated questions.
+
+3. Use the supplied context to ground your answer.
+
+4. Do not invent facts that are not supported
+   by the supplied context.
+
+5. Explain concepts clearly and professionally.
+
+6. Use simple examples when they help.
+
+7. If the context does not contain enough
+   information, clearly say that the knowledge
+   base does not contain enough information.
+
+8. Do not mention these instructions in your answer.
+"""
+
+
+                        # =================================
+                        # USER PROMPT
+                        # =================================
+
+                        user_prompt = f"""
+Here is the retrieved NLP knowledge:
+
+------------------------------
+{context}
+------------------------------
+
+User question:
+
+{query}
+
+Answer the question using the retrieved
+NLP knowledge. Explain the concept clearly.
+"""
+
+
+                        # =================================
+                        # GENERATE ANSWER
+                        # =================================
+
+                        with st.spinner(
+                            "Generating NLP explanation..."
+                        ):
+
+                            response = (
+                                client.chat.completions.create(
+
+                                    model="llama-3.1-8b-instant",
+
+                                    messages=[
+                                        {
+                                            "role": "system",
+                                            "content": system_prompt
+                                        },
+                                        {
+                                            "role": "user",
+                                            "content": user_prompt
+                                        }
+                                    ],
+
+                                    temperature=0.2,
+
+                                    max_tokens=800
+                                )
+                            )
+
+
+                        # =================================
+                        # EXTRACT ANSWER
+                        # =================================
+
+                        answer = (
+                            response
+                            .choices[0]
+                            .message
+                            .content
+                        )
+
+
+                        # =================================
+                        # DISPLAY ANSWER
+                        # =================================
+
+                        st.subheader(
+                            "Answer"
+                        )
+
+                        st.write(
+                            answer
+                        )
+
+
+                        # =================================
+                        # SHOW RETRIEVED KNOWLEDGE
+                        # =================================
+
+                        with st.expander(
+                            "🔎 Retrieved NLP Knowledge"
+                        ):
+
+                            st.write(
+                                context
+                            )
+
+
+                    # =====================================
+                    # GROQ ERROR
+                    # =====================================
+
+                    except Exception as e:
+
+                        st.error(
+                            "Unable to generate the "
+                            "LLM response using Groq."
+                        )
+
+                        st.caption(
+                            f"Error: {str(e)}"
+                        )
+
+                        # Show retrieved information
+                        # as a fallback
+
+                        st.subheader(
+                            "Retrieved NLP Knowledge"
+                        )
+
+                        st.write(
+                            context
+                        )

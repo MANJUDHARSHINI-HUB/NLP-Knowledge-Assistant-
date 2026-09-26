@@ -1,3 +1,4 @@
+```python
 import os
 import streamlit as st
 from sentence_transformers import SentenceTransformer
@@ -52,19 +53,17 @@ def load_embedding_model():
 @st.cache_resource
 def load_components():
 
-    # Load Sentence Transformer model
+    # Load Sentence Transformer
     model = load_embedding_model()
 
-    # Create NLP scope checker
+    # NLP scope checker
     scope_checker = ScopeChecker(
         model=model,
         threshold=0.38
     )
 
-    # IMPORTANT:
-    # Retriever expects the parameter name
-    # "embedding_model", not "model".
-
+    # ChromaDB retriever
+    # Retriever expects "embedding_model"
     retriever = Retriever(
         embedding_model=model
     )
@@ -72,7 +71,6 @@ def load_components():
     return model, scope_checker, retriever
 
 
-# Load everything
 model, scope_checker, retriever = load_components()
 
 
@@ -129,10 +127,6 @@ query = st.text_input(
 
 if st.button("Ask", type="primary"):
 
-    # -----------------------------------------------------
-    # CHECK EMPTY QUESTION
-    # -----------------------------------------------------
-
     if not query.strip():
 
         st.warning(
@@ -142,7 +136,7 @@ if st.button("Ask", type="primary"):
     else:
 
         # =================================================
-        # STEP 1: CHECK NLP SCOPE
+        # STEP 1: NLP SCOPE CHECK
         # =================================================
 
         with st.spinner(
@@ -178,7 +172,7 @@ if st.button("Ask", type="primary"):
         else:
 
             # =============================================
-            # STEP 2: RETRIEVE KNOWLEDGE FROM CHROMADB
+            # STEP 2: RETRIEVE FROM CHROMADB
             # =============================================
 
             with st.spinner(
@@ -191,17 +185,12 @@ if st.button("Ask", type="primary"):
                 )
 
 
-            # =============================================
-            # CHECK RETRIEVAL
-            # =============================================
-
             if not results:
 
                 st.warning(
                     "I could not find relevant information "
                     "in the NLP knowledge base."
                 )
-
 
             else:
 
@@ -229,15 +218,12 @@ if st.button("Ask", type="primary"):
 
                 try:
 
-                    # First try Streamlit Secrets
                     groq_api_key = st.secrets[
                         "GROQ_API_KEY"
                     ]
 
                 except Exception:
 
-                    # Allows local testing using
-                    # an environment variable
                     groq_api_key = os.getenv(
                         "GROQ_API_KEY"
                     )
@@ -268,7 +254,7 @@ if st.button("Ask", type="primary"):
                 else:
 
                     # =====================================
-                    # STEP 4: CONNECT TO GROQ
+                    # STEP 4: GROQ CLIENT
                     # =====================================
 
                     try:
@@ -345,7 +331,8 @@ NLP knowledge. Explain the concept clearly.
                             response = (
                                 client.chat.completions.create(
 
-                                    model="llama-3.1-8b-instant",
+                                    # CURRENT GROQ MODEL
+                                    model="openai/gpt-oss-20b",
 
                                     messages=[
                                         {
@@ -366,7 +353,7 @@ NLP knowledge. Explain the concept clearly.
 
 
                         # =================================
-                        # EXTRACT ANSWER
+                        # GET ANSWER
                         # =================================
 
                         answer = (
@@ -391,7 +378,7 @@ NLP knowledge. Explain the concept clearly.
 
 
                         # =================================
-                        # SHOW RETRIEVED KNOWLEDGE
+                        # RETRIEVED KNOWLEDGE
                         # =================================
 
                         with st.expander(
@@ -418,9 +405,6 @@ NLP knowledge. Explain the concept clearly.
                             f"Error: {str(e)}"
                         )
 
-                        # Show retrieved information
-                        # as a fallback
-
                         st.subheader(
                             "Retrieved NLP Knowledge"
                         )
@@ -428,3 +412,4 @@ NLP knowledge. Explain the concept clearly.
                         st.write(
                             context
                         )
+```

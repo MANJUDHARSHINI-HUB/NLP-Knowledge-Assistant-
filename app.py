@@ -1,4 +1,4 @@
-```python
+
 import os
 import streamlit as st
 from sentence_transformers import SentenceTransformer
@@ -329,4 +329,4 @@ question clearly and professionally.
                     )
 
                     st.write(context)
-```
+

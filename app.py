@@ -7,9 +7,9 @@ from nlp.scope_checker import ScopeChecker
 from rag.retriever import Retriever
 
 
-# =========================================================
-# STREAMLIT PAGE CONFIGURATION
-# =========================================================
+# ============================================================
+# PAGE CONFIGURATION
+# ============================================================
 
 st.set_page_config(
     page_title="NLP Knowledge Assistant",
@@ -18,60 +18,46 @@ st.set_page_config(
 )
 
 
-# =========================================================
-# TITLE
-# =========================================================
+# ============================================================
+# CUSTOM CSS
+# ============================================================
 
-st.title("🧠 NLP Knowledge Assistant")
+st.markdown("""
+<style>
 
-st.write(
-    "Ask questions about Natural Language Processing (NLP), "
-    "including concepts, techniques, algorithms, models, "
-    "applications, Transformers, LLMs, embeddings, and RAG."
-)
+.main-title {
+    font-size: 2.3rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 5px;
+}
 
+.subtitle {
+    text-align: center;
+    color: #666;
+    margin-bottom: 25px;
+}
 
-# =========================================================
-# LOAD EMBEDDING MODEL
-# =========================================================
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: 20px;
+}
 
-@st.cache_resource
-def load_embedding_model():
+.answer-box {
+    padding: 20px;
+    border-radius: 12px;
+    background-color: #f7f9fc;
+    border: 1px solid #e5e7eb;
+}
 
-    model = SentenceTransformer(
-        "all-MiniLM-L6-v2"
-    )
-
-    return model
-
-
-# =========================================================
-# LOAD PROJECT COMPONENTS
-# =========================================================
-
-@st.cache_resource
-def load_components():
-
-    model = load_embedding_model()
-
-    scope_checker = ScopeChecker(
-        model=model,
-        threshold=0.38
-    )
-
-    retriever = Retriever(
-        embedding_model=model
-    )
-
-    return model, scope_checker, retriever
+</style>
+""", unsafe_allow_html=True)
 
 
-model, scope_checker, retriever = load_components()
-
-
-# =========================================================
+# ============================================================
 # SESSION STATE
-# =========================================================
+# ============================================================
 
 if "question" not in st.session_state:
     st.session_state.question = ""
@@ -83,61 +69,120 @@ if "input_key" not in st.session_state:
     st.session_state.input_key = 0
 
 
-# =========================================================
+# ============================================================
+# LOAD MODELS AND COMPONENTS
+# ============================================================
+
+@st.cache_resource
+def load_components():
+
+    # Embedding model
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+
+    # NLP scope checker
+    scope_checker = ScopeChecker(
+        model=model,
+        threshold=0.38
+    )
+
+    # RAG retriever
+    retriever = Retriever(
+        embedding_model=model
+    )
+
+    return model, scope_checker, retriever
+
+
+model, scope_checker, retriever = load_components()
+
+
+# ============================================================
+# HEADER
+# ============================================================
+
+st.markdown(
+    '<div class="main-title">🧠 NLP Knowledge Assistant</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="subtitle">'
+    'Ask questions or learn NLP topics step-by-step'
+    '</div>',
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
 # SIDEBAR
-# =========================================================
+# ============================================================
 
 with st.sidebar:
 
-    st.header("📚 What can I ask?")
+    st.header("📚 About the Project")
 
     st.write(
-        "This assistant is designed specifically "
-        "for NLP-related questions."
+        "This assistant answers questions only from the "
+        "Natural Language Processing domain."
     )
 
-    st.write("Examples:")
+    st.markdown("---")
 
-    st.write("• What is NLP?")
-    st.write("• What are the types of NLP?")
-    st.write("• What is tokenization?")
-    st.write("• Explain TF-IDF")
-    st.write("• What is Word2Vec?")
-    st.write("• What is sentiment analysis?")
-    st.write("• Explain BERT")
-    st.write("• BERT vs GPT")
-    st.write("• What is self-attention?")
-    st.write("• What are embeddings?")
-    st.write("• What is ChromaDB?")
-    st.write("• What is RAG?")
-    st.write("• How does a Transformer work?")
+    st.subheader("🛠️ Technologies")
 
-    st.divider()
+    st.write("• Python")
+    st.write("• Streamlit")
+    st.write("• Sentence Transformers")
+    st.write("• ChromaDB")
+    st.write("• RAG")
+    st.write("• Groq LLM")
 
-    st.subheader("📊 Project Info")
+    st.markdown("---")
 
-    st.write("🧠 Domain: Natural Language Processing")
-    st.write("🔍 Search: Semantic Search")
-    st.write("📚 Database: ChromaDB")
-    st.write("🔗 Method: RAG")
-    st.write("🤖 AI: Groq LLM")
-    st.write("🧩 Embedding: MiniLM")
+    st.subheader("💡 Example Questions")
 
-    st.divider()
+    example_questions = [
+        "What is NLP?",
+        "What is tokenization?",
+        "How does TF-IDF work?",
+        "What is sentiment analysis?",
+        "What is BERT?",
+        "What is self-attention?",
+        "What is RAG?"
+    ]
 
-    st.info(
-        "Questions unrelated to NLP are outside "
-        "the scope of this assistant."
-    )
+    for example in example_questions:
+
+        if st.button(
+            example,
+            key=f"example_{example}"
+        ):
+            st.session_state.question = example
+            st.session_state.input_key += 1
+            st.rerun()
+
+    st.markdown("---")
+
+    if st.session_state.recent_questions:
+
+        st.subheader("🕘 Recent Questions")
+
+        for recent in reversed(
+            st.session_state.recent_questions[-5:]
+        ):
+            st.caption(f"• {recent}")
 
 
-# =========================================================
-# LEARN AN NLP TOPIC
-# =========================================================
+# ============================================================
+# LEARN THIS TOPIC
+# ============================================================
 
-st.subheader("📖 Learn an NLP Topic")
+st.markdown(
+    '<div class="section-title">📖 Learn an NLP Topic</div>',
+    unsafe_allow_html=True
+)
 
-topic_options = [
+topics = [
     "NLP",
     "Tokenization",
     "TF-IDF",
@@ -154,316 +199,163 @@ topic_options = [
 
 selected_topic = st.selectbox(
     "Choose a topic to learn:",
-    topic_options
+    topics
 )
 
 learn_button = st.button(
     "📖 Learn This Topic",
-    use_container_width=True
+    type="secondary"
 )
 
-
-# =========================================================
-# SUGGESTED QUESTIONS
-# =========================================================
-
-st.subheader("💡 Try a question")
-
-col1, col2 = st.columns(2)
-
-with col1:
-
-    if st.button(
-        "What is NLP?",
-        use_container_width=True
-    ):
-        st.session_state.question = "What is NLP?"
-        st.session_state.input_key += 1
-        st.rerun()
-
-    if st.button(
-        "What is Tokenization?",
-        use_container_width=True
-    ):
-        st.session_state.question = "What is tokenization?"
-        st.session_state.input_key += 1
-        st.rerun()
-
-    if st.button(
-        "Explain BERT",
-        use_container_width=True
-    ):
-        st.session_state.question = "Explain BERT"
-        st.session_state.input_key += 1
-        st.rerun()
+st.markdown("---")
 
 
-with col2:
-
-    if st.button(
-        "What is RAG?",
-        use_container_width=True
-    ):
-        st.session_state.question = "What is RAG?"
-        st.session_state.input_key += 1
-        st.rerun()
-
-    if st.button(
-        "Explain TF-IDF",
-        use_container_width=True
-    ):
-        st.session_state.question = "Explain TF-IDF"
-        st.session_state.input_key += 1
-        st.rerun()
-
-    if st.button(
-        "What are embeddings?",
-        use_container_width=True
-    ):
-        st.session_state.question = "What are embeddings?"
-        st.session_state.input_key += 1
-        st.rerun()
-
-
-# =========================================================
-# LEARN TOPIC ACTION
-# =========================================================
-
-if learn_button:
-
-    topic_question = f"Explain {selected_topic}"
-
-    # Directly remember the topic
-    st.session_state.question = topic_question
-
-    # Create a new input widget
-    st.session_state.input_key += 1
-
-
-# =========================================================
-# USER INPUT
-# =========================================================
+# ============================================================
+# QUESTION INPUT
+# ============================================================
 
 query = st.text_input(
-    "💬 Ask your NLP question:",
+    "Ask an NLP question:",
     value=st.session_state.question,
-    key=f"question_input_{st.session_state.input_key}",
-    placeholder="Example: What is tokenization?"
+    placeholder="Example: What is tokenization?",
+    key=f"question_input_{st.session_state.input_key}"
 )
 
 
-# =========================================================
+# ============================================================
 # BUTTONS
-# =========================================================
+# ============================================================
 
 col1, col2 = st.columns(2)
 
 with col1:
 
     ask_button = st.button(
-        "🔍 Ask",
-        type="primary",
-        use_container_width=True
+        "🔍 Ask Question",
+        type="primary"
     )
 
 with col2:
 
     clear_button = st.button(
-        "🧹 Clear",
-        use_container_width=True
+        "🗑️ Clear"
     )
 
 
-# =========================================================
+# ============================================================
 # CLEAR BUTTON
-# =========================================================
+# ============================================================
 
 if clear_button:
 
     st.session_state.question = ""
-
     st.session_state.input_key += 1
 
     st.rerun()
 
 
-# =========================================================
-# FUNCTION TO GENERATE ANSWER
-# =========================================================
+# ============================================================
+# SUGGESTED QUESTIONS
+# ============================================================
 
-def generate_nlp_answer(user_question):
+st.markdown(
+    '<div class="section-title">💡 Suggested Questions</div>',
+    unsafe_allow_html=True
+)
 
-    # -----------------------------------------------------
-    # STEP 1: CHECK NLP SCOPE
-    # -----------------------------------------------------
+suggestions = [
+    "What is Natural Language Processing?",
+    "What are the types of NLP?",
+    "What is tokenization?",
+    "What is TF-IDF?",
+    "How does sentiment analysis work?",
+    "What is BERT?",
+    "What is RAG?"
+]
 
-    with st.spinner(
-        "🔎 Checking whether your question is NLP-related..."
-    ):
+suggestion_columns = st.columns(2)
 
-        in_scope, score = scope_checker.check(
-            user_question
-        )
+for index, suggestion in enumerate(suggestions):
 
+    with suggestion_columns[index % 2]:
 
-    # -----------------------------------------------------
-    # OUT OF SCOPE
-    # -----------------------------------------------------
+        if st.button(
+            suggestion,
+            key=f"suggestion_{index}"
+        ):
 
-    if not in_scope:
+            st.session_state.question = suggestion
+            st.session_state.input_key += 1
 
-        st.warning(
-            "Sorry, I’m an NLP-focused assistant. "
-            "I can answer questions about NLP concepts, "
-            "techniques, models, algorithms, and applications."
-        )
-
-        st.metric(
-            "📊 NLP Relevance",
-            f"{score * 100:.1f}%"
-        )
-
-        return
+            st.rerun()
 
 
-    # -----------------------------------------------------
-    # NLP QUESTION
-    # -----------------------------------------------------
+# ============================================================
+# GROQ ANSWER FUNCTION
+# ============================================================
 
-    st.success(
-        "✅ Your question is related to NLP."
-    )
+def generate_nlp_answer(
+    question,
+    context,
+    learn_mode=False,
+    topic=None
+):
 
-    st.metric(
-        "📊 NLP Relevance",
-        f"{score * 100:.1f}%"
-    )
-
-
-    # -----------------------------------------------------
-    # STEP 2: RETRIEVE KNOWLEDGE
-    # -----------------------------------------------------
-
-    with st.spinner(
-        "📚 Searching the NLP knowledge base..."
-    ):
-
-        results = retriever.search(
-            user_question,
-            k=4
-        )
-
-
-    # -----------------------------------------------------
-    # CHECK RETRIEVAL
-    # -----------------------------------------------------
-
-    if not results:
-
-        st.warning(
-            "I could not find relevant information "
-            "in the NLP knowledge base."
-        )
-
-        return
-
-
-    st.info(
-        f"📚 {len(results)} relevant knowledge "
-        f"section(s) found."
-    )
-
-
-    # -----------------------------------------------------
-    # COMBINE RETRIEVED DOCUMENTS
-    # -----------------------------------------------------
-
-    context_parts = []
-
-    for document in results:
-
-        if document:
-
-            context_parts.append(
-                str(document)
-            )
-
-    context = "\n\n---\n\n".join(
-        context_parts
-    )
-
-
-    # -----------------------------------------------------
-    # GET GROQ API KEY
-    # -----------------------------------------------------
+    # --------------------------------------------------------
+    # GROQ API KEY
+    # --------------------------------------------------------
 
     try:
-
-        groq_api_key = st.secrets[
-            "GROQ_API_KEY"
-        ]
+        api_key = st.secrets["GROQ_API_KEY"]
 
     except Exception:
 
-        groq_api_key = os.getenv(
-            "GROQ_API_KEY"
+        api_key = os.getenv("GROQ_API_KEY")
+
+    if not api_key:
+
+        return (
+            "Groq API key was not found. "
+            "Please add GROQ_API_KEY to Streamlit Secrets."
         )
 
 
-    # -----------------------------------------------------
-    # CHECK API KEY
-    # -----------------------------------------------------
-
-    if not groq_api_key:
-
-        st.error(
-            "Groq API key is not configured."
-        )
-
-        st.info(
-            "Add GROQ_API_KEY in Streamlit Secrets."
-        )
-
-        return
-
-
-    # -----------------------------------------------------
+    # --------------------------------------------------------
     # CREATE GROQ CLIENT
-    # -----------------------------------------------------
+    # --------------------------------------------------------
 
     client = Groq(
-        api_key=groq_api_key
+        api_key=api_key
     )
 
 
-    # -----------------------------------------------------
-    # SYSTEM PROMPT
-    # -----------------------------------------------------
+    # ========================================================
+    # NORMAL QUESTION MODE
+    # ========================================================
 
-    system_prompt = """
+    if not learn_mode:
+
+        system_prompt = """
 You are an NLP Knowledge Assistant.
 
-Your job is to answer questions only about
-Natural Language Processing.
+Your job is to answer questions about Natural Language Processing.
 
-Use the supplied knowledge base to support
-your answer.
+Use the supplied NLP knowledge base as the main source for your answer.
 
-Give a clear and easy-to-understand explanation.
+Important rules:
 
-If the retrieved knowledge does not contain
-enough information, say that clearly instead
-of inventing unsupported facts.
-
-Stay within the NLP domain.
+1. Answer only NLP-related questions.
+2. Use the retrieved knowledge provided to you.
+3. Do not invent information that is not supported by the knowledge base.
+4. Explain concepts clearly and simply.
+5. Give examples when useful.
+6. If the retrieved knowledge does not contain enough information,
+   clearly say that the available knowledge base does not contain
+   enough information.
+7. Do not answer unrelated topics.
 """
 
-
-    # -----------------------------------------------------
-    # USER PROMPT
-    # -----------------------------------------------------
-
-    user_prompt = f"""
+        user_prompt = f"""
 Retrieved NLP Knowledge:
 
 {context}
@@ -471,183 +363,345 @@ Retrieved NLP Knowledge:
 
 User Question:
 
-{user_question}
+{question}
 
 
-Please answer the user's question using
-the retrieved NLP knowledge.
-
-Explain the concept clearly and simply.
+Answer the question clearly using the retrieved NLP knowledge.
 """
 
 
-    # -----------------------------------------------------
-    # CALL GROQ LLM
-    # -----------------------------------------------------
+    # ========================================================
+    # LEARN MODE
+    # ========================================================
+
+    else:
+
+        system_prompt = """
+You are an NLP teacher inside an NLP Knowledge Assistant.
+
+The user has selected a topic and wants to LEARN the topic.
+
+This is different from simply answering one question.
+
+Create a beginner-friendly mini lesson about the selected NLP topic.
+
+Use the supplied NLP knowledge base as your main source.
+
+Structure the lesson using the following sections whenever
+the retrieved knowledge supports them:
+
+1. What is it?
+2. Why is it used?
+3. How does it work?
+4. Main components or concepts
+5. Types or variations
+6. Simple example
+7. Applications
+8. Advantages
+9. Limitations
+10. Quick recap
+
+Important rules:
+
+- Explain the topic in simple language.
+- Teach the concept step-by-step.
+- Do not make up types, applications, advantages, or limitations.
+- Only include sections when the retrieved knowledge supports them.
+- If a section is not supported by the knowledge base,
+  leave it out rather than inventing information.
+- Use examples from the knowledge base when available.
+- Keep the explanation useful for a college student learning NLP.
+- Do not turn the answer into a one-line definition.
+- The goal is to TEACH the complete concept.
+"""
+
+        user_prompt = f"""
+Topic to Learn:
+
+{topic}
+
+
+Retrieved NLP Knowledge:
+
+{context}
+
+
+Teach me this topic as a complete beginner-friendly NLP lesson.
+
+Explain what it is, why it is used, how it works, its main concepts,
+types or variations when available, examples, applications,
+advantages and limitations when supported by the retrieved knowledge,
+and finish with a short recap.
+
+Use only the retrieved NLP knowledge as your factual source.
+"""
+
+
+    # ========================================================
+    # GROQ REQUEST
+    # ========================================================
 
     try:
 
-        with st.spinner(
-            "🤖 Generating your NLP answer..."
-        ):
+        response = client.chat.completions.create(
 
-            response = client.chat.completions.create(
+            model="openai/gpt-oss-20b",
 
-                model="openai/gpt-oss-20b",
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt
+                }
+            ],
 
-                messages=[
-                    {
-                        "role": "system",
-                        "content": system_prompt
-                    },
-                    {
-                        "role": "user",
-                        "content": user_prompt
-                    }
-                ],
-
-                temperature=0.2,
-
-                max_tokens=800
-            )
-
-
-        # -------------------------------------------------
-        # GET ANSWER
-        # -------------------------------------------------
-
-        answer = (
-            response
-            .choices[0]
-            .message
-            .content
+            temperature=0.2,
+            max_tokens=1200
         )
 
-
-        # -------------------------------------------------
-        # DISPLAY ANSWER
-        # -------------------------------------------------
-
-        st.divider()
-
-        st.subheader(
-            "🤖 AI Answer"
-        )
-
-        st.write(answer)
-
-
-        # -------------------------------------------------
-        # KNOWLEDGE USED
-        # -------------------------------------------------
-
-        with st.expander(
-            "📚 View Knowledge Used"
-        ):
-
-            st.write(
-                "The following information "
-                "was retrieved from the NLP knowledge base:"
-            )
-
-            st.write(context)
+        return response.choices[0].message.content
 
 
     except Exception as e:
 
-        st.error(
-            "The AI service could not generate the answer."
-        )
-
-        st.info(
-            "Here is the relevant NLP knowledge "
-            "retrieved from the knowledge base:"
-        )
-
-        st.write(context)
-
-        st.caption(
-            f"Error: {e}"
-        )
+        return f"Groq error: {str(e)}"
 
 
-# =========================================================
-# PROCESS LEARN TOPIC
-# =========================================================
-
-if learn_button:
-
-    topic_question = f"Explain {selected_topic}"
-
-    if topic_question not in st.session_state.recent_questions:
-
-        st.session_state.recent_questions.insert(
-            0,
-            topic_question
-        )
-
-    st.session_state.recent_questions = (
-        st.session_state.recent_questions[:5]
-    )
-
-    st.subheader(
-        f"📖 Learning: {selected_topic}"
-    )
-
-    generate_nlp_answer(
-        topic_question
-    )
-
-
-# =========================================================
+# ============================================================
 # PROCESS NORMAL QUESTION
-# =========================================================
+# ============================================================
 
 if ask_button:
 
     if not query.strip():
 
         st.warning(
-            "Please enter a question."
+            "Please enter an NLP question first."
         )
 
     else:
 
         st.session_state.question = query
 
-        if query not in st.session_state.recent_questions:
+        # ----------------------------------------------------
+        # NLP SCOPE CHECK
+        # ----------------------------------------------------
 
-            st.session_state.recent_questions.insert(
-                0,
-                query
+        in_scope, score = scope_checker.check(query)
+
+
+        if not in_scope:
+
+            st.warning(
+                "⚠️ This question appears to be outside "
+                "the NLP context."
             )
 
-        st.session_state.recent_questions = (
-            st.session_state.recent_questions[:5]
+            st.caption(
+                f"NLP relevance score: {score:.0%}"
+            )
+
+
+        else:
+
+            st.success(
+                "✅ Your question is related to NLP."
+            )
+
+            st.caption(
+                f"NLP relevance score: {score:.0%}"
+            )
+
+
+            # ------------------------------------------------
+            # RAG RETRIEVAL
+            # ------------------------------------------------
+
+            with st.spinner(
+                "🔎 Searching the NLP knowledge base..."
+            ):
+
+                results = retriever.search(
+                    query,
+                    k=4
+                )
+
+
+            if results:
+
+                context = "\n\n---\n\n".join(results)
+
+            else:
+
+                context = (
+                    "No relevant information was retrieved "
+                    "from the NLP knowledge base."
+                )
+
+
+            # ------------------------------------------------
+            # GENERATE ANSWER
+            # ------------------------------------------------
+
+            with st.spinner(
+                "🤖 Generating your answer..."
+            ):
+
+                answer = generate_nlp_answer(
+                    question=query,
+                    context=context,
+                    learn_mode=False
+                )
+
+
+            # ------------------------------------------------
+            # DISPLAY ANSWER
+            # ------------------------------------------------
+
+            st.markdown("## 🤖 AI Answer")
+
+            st.markdown(
+                '<div class="answer-box">',
+                unsafe_allow_html=True
+            )
+
+            st.markdown(answer)
+
+            st.markdown(
+                '</div>',
+                unsafe_allow_html=True
+            )
+
+
+            # ------------------------------------------------
+            # RETRIEVED KNOWLEDGE
+            # ------------------------------------------------
+
+            with st.expander(
+                "📚 View Retrieved NLP Knowledge"
+            ):
+
+                st.write(
+                    f"Found {len(results)} relevant sections."
+                )
+
+                for result in results:
+
+                    st.markdown("---")
+                    st.markdown(result)
+
+
+            # ------------------------------------------------
+            # RECENT QUESTIONS
+            # ------------------------------------------------
+
+            if query not in st.session_state.recent_questions:
+
+                st.session_state.recent_questions.append(
+                    query
+                )
+
+
+# ============================================================
+# PROCESS LEARN TOPIC
+# ============================================================
+
+if learn_button:
+
+    topic_question = f"Explain {selected_topic}"
+
+    # --------------------------------------------------------
+    # RETRIEVE KNOWLEDGE
+    # --------------------------------------------------------
+
+    with st.spinner(
+        f"🔎 Collecting knowledge about {selected_topic}..."
+    ):
+
+        results = retriever.search(
+            topic_question,
+            k=4
         )
 
-        generate_nlp_answer(
-            query
+
+    if results:
+
+        context = "\n\n---\n\n".join(results)
+
+    else:
+
+        context = (
+            "No relevant information was retrieved "
+            "from the NLP knowledge base."
         )
 
 
-# =========================================================
-# RECENT QUESTIONS
-# =========================================================
+    # --------------------------------------------------------
+    # GENERATE LESSON
+    # --------------------------------------------------------
 
-if st.session_state.recent_questions:
+    with st.spinner(
+        f"📖 Preparing your {selected_topic} lesson..."
+    ):
 
-    st.divider()
+        answer = generate_nlp_answer(
+            question=topic_question,
+            context=context,
+            learn_mode=True,
+            topic=selected_topic
+        )
 
-    st.subheader(
-        "🕒 Recent Questions"
+
+    # --------------------------------------------------------
+    # DISPLAY LESSON
+    # --------------------------------------------------------
+
+    st.markdown(
+        f"## 📖 Learn: {selected_topic}"
     )
 
-    for i, question in enumerate(
-        st.session_state.recent_questions,
-        start=1
+    st.markdown(
+        '<div class="answer-box">',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(answer)
+
+    st.markdown(
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+
+    # --------------------------------------------------------
+    # RETRIEVED KNOWLEDGE
+    # --------------------------------------------------------
+
+    with st.expander(
+        "📚 View Retrieved NLP Knowledge"
     ):
 
         st.write(
-            f"{i}. {question}"
+            f"Found {len(results)} relevant sections."
+        )
+
+        for result in results:
+
+            st.markdown("---")
+            st.markdown(result)
+
+
+    # --------------------------------------------------------
+    # ADD TO RECENT QUESTIONS
+    # --------------------------------------------------------
+
+    learn_history = f"Learn: {selected_topic}"
+
+    if learn_history not in st.session_state.recent_questions:
+
+        st.session_state.recent_questions.append(
+            learn_history
         )

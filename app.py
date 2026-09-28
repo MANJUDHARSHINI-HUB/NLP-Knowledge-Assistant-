@@ -73,11 +73,14 @@ model, scope_checker, retriever = load_components()
 # SESSION STATE
 # =========================================================
 
-if "question_input" not in st.session_state:
-    st.session_state.question_input = ""
+if "question" not in st.session_state:
+    st.session_state.question = ""
 
 if "recent_questions" not in st.session_state:
     st.session_state.recent_questions = []
+
+if "input_key" not in st.session_state:
+    st.session_state.input_key = 0
 
 
 # =========================================================
@@ -129,7 +132,7 @@ with st.sidebar:
 
 
 # =========================================================
-# LEARN A TOPIC FEATURE
+# LEARN AN NLP TOPIC
 # =========================================================
 
 st.subheader("📖 Learn an NLP Topic")
@@ -174,19 +177,25 @@ with col1:
         "What is NLP?",
         use_container_width=True
     ):
-        st.session_state.question_input = "What is NLP?"
+        st.session_state.question = "What is NLP?"
+        st.session_state.input_key += 1
+        st.rerun()
 
     if st.button(
         "What is Tokenization?",
         use_container_width=True
     ):
-        st.session_state.question_input = "What is tokenization?"
+        st.session_state.question = "What is tokenization?"
+        st.session_state.input_key += 1
+        st.rerun()
 
     if st.button(
         "Explain BERT",
         use_container_width=True
     ):
-        st.session_state.question_input = "Explain BERT"
+        st.session_state.question = "Explain BERT"
+        st.session_state.input_key += 1
+        st.rerun()
 
 
 with col2:
@@ -195,19 +204,40 @@ with col2:
         "What is RAG?",
         use_container_width=True
     ):
-        st.session_state.question_input = "What is RAG?"
+        st.session_state.question = "What is RAG?"
+        st.session_state.input_key += 1
+        st.rerun()
 
     if st.button(
         "Explain TF-IDF",
         use_container_width=True
     ):
-        st.session_state.question_input = "Explain TF-IDF"
+        st.session_state.question = "Explain TF-IDF"
+        st.session_state.input_key += 1
+        st.rerun()
 
     if st.button(
         "What are embeddings?",
         use_container_width=True
     ):
-        st.session_state.question_input = "What are embeddings?"
+        st.session_state.question = "What are embeddings?"
+        st.session_state.input_key += 1
+        st.rerun()
+
+
+# =========================================================
+# LEARN TOPIC ACTION
+# =========================================================
+
+if learn_button:
+
+    topic_question = f"Explain {selected_topic}"
+
+    # Directly remember the topic
+    st.session_state.question = topic_question
+
+    # Create a new input widget
+    st.session_state.input_key += 1
 
 
 # =========================================================
@@ -216,7 +246,8 @@ with col2:
 
 query = st.text_input(
     "💬 Ask your NLP question:",
-    key="question_input",
+    value=st.session_state.question,
+    key=f"question_input_{st.session_state.input_key}",
     placeholder="Example: What is tokenization?"
 )
 
@@ -249,8 +280,9 @@ with col2:
 
 if clear_button:
 
-    st.session_state.question_input = ""
-    st.session_state.recent_questions = []
+    st.session_state.question = ""
+
+    st.session_state.input_key += 1
 
     st.rerun()
 
@@ -461,7 +493,6 @@ Explain the concept clearly and simply.
 
             response = client.chat.completions.create(
 
-                # SAME MODEL
                 model="openai/gpt-oss-20b",
 
                 messages=[
@@ -522,10 +553,6 @@ Explain the concept clearly and simply.
             st.write(context)
 
 
-    # -----------------------------------------------------
-    # ERROR HANDLING
-    # -----------------------------------------------------
-
     except Exception as e:
 
         st.error(
@@ -545,36 +572,6 @@ Explain the concept clearly and simply.
 
 
 # =========================================================
-# PROCESS NORMAL QUESTION
-# =========================================================
-
-if ask_button:
-
-    if not query.strip():
-
-        st.warning(
-            "Please enter a question."
-        )
-
-    else:
-
-        # Save recent question
-        if query not in st.session_state.recent_questions:
-
-            st.session_state.recent_questions.insert(
-                0,
-                query
-            )
-
-        # Keep only latest 5
-        st.session_state.recent_questions = (
-            st.session_state.recent_questions[:5]
-        )
-
-        generate_nlp_answer(query)
-
-
-# =========================================================
 # PROCESS LEARN TOPIC
 # =========================================================
 
@@ -582,9 +579,6 @@ if learn_button:
 
     topic_question = f"Explain {selected_topic}"
 
-    st.session_state.question_input = topic_question
-
-    # Save topic in recent questions
     if topic_question not in st.session_state.recent_questions:
 
         st.session_state.recent_questions.insert(
@@ -600,7 +594,41 @@ if learn_button:
         f"📖 Learning: {selected_topic}"
     )
 
-    generate_nlp_answer(topic_question)
+    generate_nlp_answer(
+        topic_question
+    )
+
+
+# =========================================================
+# PROCESS NORMAL QUESTION
+# =========================================================
+
+if ask_button:
+
+    if not query.strip():
+
+        st.warning(
+            "Please enter a question."
+        )
+
+    else:
+
+        st.session_state.question = query
+
+        if query not in st.session_state.recent_questions:
+
+            st.session_state.recent_questions.insert(
+                0,
+                query
+            )
+
+        st.session_state.recent_questions = (
+            st.session_state.recent_questions[:5]
+        )
+
+        generate_nlp_answer(
+            query
+        )
 
 
 # =========================================================

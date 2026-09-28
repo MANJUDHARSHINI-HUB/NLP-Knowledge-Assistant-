@@ -467,7 +467,8 @@ the retrieved NLP knowledge.
 
                             response = client.chat.completions.create(
 
-                                model="llama-3.1-8b-instant",
+                                # CURRENT GROQ MODEL
+                                model="openai/gpt-oss-20b",
 
                                 messages=[
                                     {

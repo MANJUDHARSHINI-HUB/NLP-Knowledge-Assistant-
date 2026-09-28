@@ -73,8 +73,8 @@ model, scope_checker, retriever = load_components()
 # SESSION STATE
 # =========================================================
 
-if "question" not in st.session_state:
-    st.session_state.question = ""
+if "question_input" not in st.session_state:
+    st.session_state.question_input = ""
 
 if "recent_questions" not in st.session_state:
     st.session_state.recent_questions = []
@@ -129,6 +129,38 @@ with st.sidebar:
 
 
 # =========================================================
+# LEARN A TOPIC FEATURE
+# =========================================================
+
+st.subheader("📖 Learn an NLP Topic")
+
+topic_options = [
+    "NLP",
+    "Tokenization",
+    "TF-IDF",
+    "Word2Vec",
+    "Sentiment Analysis",
+    "BERT",
+    "GPT",
+    "Self-Attention",
+    "Embeddings",
+    "ChromaDB",
+    "RAG",
+    "Transformers"
+]
+
+selected_topic = st.selectbox(
+    "Choose a topic to learn:",
+    topic_options
+)
+
+learn_button = st.button(
+    "📖 Learn This Topic",
+    use_container_width=True
+)
+
+
+# =========================================================
 # SUGGESTED QUESTIONS
 # =========================================================
 
@@ -142,19 +174,19 @@ with col1:
         "What is NLP?",
         use_container_width=True
     ):
-        st.session_state.question = "What is NLP?"
+        st.session_state.question_input = "What is NLP?"
 
     if st.button(
         "What is Tokenization?",
         use_container_width=True
     ):
-        st.session_state.question = "What is tokenization?"
+        st.session_state.question_input = "What is tokenization?"
 
     if st.button(
         "Explain BERT",
         use_container_width=True
     ):
-        st.session_state.question = "Explain BERT"
+        st.session_state.question_input = "Explain BERT"
 
 
 with col2:
@@ -163,19 +195,19 @@ with col2:
         "What is RAG?",
         use_container_width=True
     ):
-        st.session_state.question = "What is RAG?"
+        st.session_state.question_input = "What is RAG?"
 
     if st.button(
         "Explain TF-IDF",
         use_container_width=True
     ):
-        st.session_state.question = "Explain TF-IDF"
+        st.session_state.question_input = "Explain TF-IDF"
 
     if st.button(
         "What are embeddings?",
         use_container_width=True
     ):
-        st.session_state.question = "What are embeddings?"
+        st.session_state.question_input = "What are embeddings?"
 
 
 # =========================================================
@@ -184,7 +216,7 @@ with col2:
 
 query = st.text_input(
     "💬 Ask your NLP question:",
-    value=st.session_state.question,
+    key="question_input",
     placeholder="Example: What is tokenization?"
 )
 
@@ -217,206 +249,166 @@ with col2:
 
 if clear_button:
 
-    st.session_state.question = ""
+    st.session_state.question_input = ""
+    st.session_state.recent_questions = []
 
     st.rerun()
 
 
 # =========================================================
-# ASK BUTTON
+# FUNCTION TO GENERATE ANSWER
 # =========================================================
 
-if ask_button:
+def generate_nlp_answer(user_question):
 
     # -----------------------------------------------------
-    # CHECK EMPTY QUESTION
+    # STEP 1: CHECK NLP SCOPE
     # -----------------------------------------------------
 
-    if not query.strip():
+    with st.spinner(
+        "🔎 Checking whether your question is NLP-related..."
+    ):
+
+        in_scope, score = scope_checker.check(
+            user_question
+        )
+
+
+    # -----------------------------------------------------
+    # OUT OF SCOPE
+    # -----------------------------------------------------
+
+    if not in_scope:
 
         st.warning(
-            "Please enter a question."
+            "Sorry, I’m an NLP-focused assistant. "
+            "I can answer questions about NLP concepts, "
+            "techniques, models, algorithms, and applications."
         )
 
-    else:
+        st.metric(
+            "📊 NLP Relevance",
+            f"{score * 100:.1f}%"
+        )
 
-        # =================================================
-        # SAVE QUESTION
-        # =================================================
+        return
 
-        st.session_state.question = query
 
-        if query not in st.session_state.recent_questions:
+    # -----------------------------------------------------
+    # NLP QUESTION
+    # -----------------------------------------------------
 
-            st.session_state.recent_questions.insert(
-                0,
-                query
-            )
+    st.success(
+        "✅ Your question is related to NLP."
+    )
 
-        # Keep only the latest 5 questions
+    st.metric(
+        "📊 NLP Relevance",
+        f"{score * 100:.1f}%"
+    )
 
-        st.session_state.recent_questions = (
-            st.session_state.recent_questions[:5]
+
+    # -----------------------------------------------------
+    # STEP 2: RETRIEVE KNOWLEDGE
+    # -----------------------------------------------------
+
+    with st.spinner(
+        "📚 Searching the NLP knowledge base..."
+    ):
+
+        results = retriever.search(
+            user_question,
+            k=4
         )
 
 
-        # =================================================
-        # STEP 1: CHECK NLP SCOPE
-        # =================================================
+    # -----------------------------------------------------
+    # CHECK RETRIEVAL
+    # -----------------------------------------------------
 
-        with st.spinner(
-            "🔎 Checking whether your question is NLP-related..."
-        ):
+    if not results:
 
-            in_scope, score = scope_checker.check(
-                query
+        st.warning(
+            "I could not find relevant information "
+            "in the NLP knowledge base."
+        )
+
+        return
+
+
+    st.info(
+        f"📚 {len(results)} relevant knowledge "
+        f"section(s) found."
+    )
+
+
+    # -----------------------------------------------------
+    # COMBINE RETRIEVED DOCUMENTS
+    # -----------------------------------------------------
+
+    context_parts = []
+
+    for document in results:
+
+        if document:
+
+            context_parts.append(
+                str(document)
             )
 
-
-        # =================================================
-        # OUT-OF-SCOPE QUESTION
-        # =================================================
-
-        if not in_scope:
-
-            st.warning(
-                "Sorry, I’m an NLP-focused assistant. "
-                "I can answer questions about NLP concepts, "
-                "techniques, models, algorithms, and applications."
-            )
-
-            st.metric(
-                "📊 NLP Relevance",
-                f"{score * 100:.1f}%"
-            )
+    context = "\n\n---\n\n".join(
+        context_parts
+    )
 
 
-        # =================================================
-        # NLP QUESTION
-        # =================================================
+    # -----------------------------------------------------
+    # GET GROQ API KEY
+    # -----------------------------------------------------
 
-        else:
+    try:
 
-            # =============================================
-            # NLP RELEVANCE
-            # =============================================
+        groq_api_key = st.secrets[
+            "GROQ_API_KEY"
+        ]
 
-            st.success(
-                "✅ Your question is related to NLP."
-            )
+    except Exception:
 
-            st.metric(
-                "📊 NLP Relevance",
-                f"{score * 100:.1f}%"
-            )
+        groq_api_key = os.getenv(
+            "GROQ_API_KEY"
+        )
 
 
-            # =============================================
-            # STEP 2: RETRIEVE KNOWLEDGE
-            # =============================================
+    # -----------------------------------------------------
+    # CHECK API KEY
+    # -----------------------------------------------------
 
-            with st.spinner(
-                "📚 Searching the NLP knowledge base..."
-            ):
+    if not groq_api_key:
 
-                results = retriever.search(
-                    query,
-                    k=4
-                )
+        st.error(
+            "Groq API key is not configured."
+        )
 
+        st.info(
+            "Add GROQ_API_KEY in Streamlit Secrets."
+        )
 
-            # =============================================
-            # CHECK RETRIEVAL
-            # =============================================
-
-            if not results:
-
-                st.warning(
-                    "I could not find relevant information "
-                    "in the NLP knowledge base."
-                )
+        return
 
 
-            else:
+    # -----------------------------------------------------
+    # CREATE GROQ CLIENT
+    # -----------------------------------------------------
 
-                # =========================================
-                # SHOW RETRIEVAL INFORMATION
-                # =========================================
-
-                st.info(
-                    f"📚 {len(results)} relevant knowledge "
-                    f"section(s) found."
-                )
+    client = Groq(
+        api_key=groq_api_key
+    )
 
 
-                # =========================================
-                # COMBINE RETRIEVED DOCUMENTS
-                # =========================================
+    # -----------------------------------------------------
+    # SYSTEM PROMPT
+    # -----------------------------------------------------
 
-                context_parts = []
-
-                for document in results:
-
-                    if document:
-
-                        context_parts.append(
-                            str(document)
-                        )
-
-                context = "\n\n---\n\n".join(
-                    context_parts
-                )
-
-
-                # =========================================
-                # STEP 3: GET GROQ API KEY
-                # =========================================
-
-                try:
-
-                    groq_api_key = st.secrets[
-                        "GROQ_API_KEY"
-                    ]
-
-                except Exception:
-
-                    groq_api_key = os.getenv(
-                        "GROQ_API_KEY"
-                    )
-
-
-                # =========================================
-                # CHECK API KEY
-                # =========================================
-
-                if not groq_api_key:
-
-                    st.error(
-                        "Groq API key is not configured."
-                    )
-
-                    st.info(
-                        "Add GROQ_API_KEY in "
-                        "Streamlit Secrets."
-                    )
-
-
-                else:
-
-                    # =====================================
-                    # CREATE GROQ CLIENT
-                    # =====================================
-
-                    client = Groq(
-                        api_key=groq_api_key
-                    )
-
-
-                    # =====================================
-                    # SYSTEM PROMPT
-                    # =====================================
-
-                    system_prompt = """
+    system_prompt = """
 You are an NLP Knowledge Assistant.
 
 Your job is to answer questions only about
@@ -435,11 +427,11 @@ Stay within the NLP domain.
 """
 
 
-                    # =====================================
-                    # USER PROMPT
-                    # =====================================
+    # -----------------------------------------------------
+    # USER PROMPT
+    # -----------------------------------------------------
 
-                    user_prompt = f"""
+    user_prompt = f"""
 Retrieved NLP Knowledge:
 
 {context}
@@ -447,110 +439,168 @@ Retrieved NLP Knowledge:
 
 User Question:
 
-{query}
+{user_question}
 
 
 Please answer the user's question using
 the retrieved NLP knowledge.
+
+Explain the concept clearly and simply.
 """
 
 
-                    # =====================================
-                    # CALL GROQ LLM
-                    # =====================================
+    # -----------------------------------------------------
+    # CALL GROQ LLM
+    # -----------------------------------------------------
 
-                    try:
+    try:
 
-                        with st.spinner(
-                            "🤖 Generating your NLP answer..."
-                        ):
+        with st.spinner(
+            "🤖 Generating your NLP answer..."
+        ):
 
-                            response = client.chat.completions.create(
+            response = client.chat.completions.create(
 
-                                # CURRENT GROQ MODEL
-                                model="openai/gpt-oss-20b",
+                # SAME MODEL
+                model="openai/gpt-oss-20b",
 
-                                messages=[
-                                    {
-                                        "role": "system",
-                                        "content": system_prompt
-                                    },
-                                    {
-                                        "role": "user",
-                                        "content": user_prompt
-                                    }
-                                ],
+                messages=[
+                    {
+                        "role": "system",
+                        "content": system_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": user_prompt
+                    }
+                ],
 
-                                temperature=0.2,
+                temperature=0.2,
 
-                                max_tokens=800
-                            )
-
-
-                        # =================================
-                        # GET ANSWER
-                        # =================================
-
-                        answer = (
-                            response
-                            .choices[0]
-                            .message
-                            .content
-                        )
+                max_tokens=800
+            )
 
 
-                        # =================================
-                        # DISPLAY ANSWER
-                        # =================================
+        # -------------------------------------------------
+        # GET ANSWER
+        # -------------------------------------------------
 
-                        st.divider()
-
-                        st.subheader(
-                            "🤖 AI Answer"
-                        )
-
-                        st.write(answer)
-
-
-                        # =================================
-                        # KNOWLEDGE USED
-                        # =================================
-
-                        with st.expander(
-                            "📚 View Knowledge Used"
-                        ):
-
-                            st.write(
-                                "The following information "
-                                "was retrieved from the "
-                                "NLP knowledge base:"
-                            )
-
-                            st.write(context)
+        answer = (
+            response
+            .choices[0]
+            .message
+            .content
+        )
 
 
-                    # =====================================
-                    # ERROR HANDLING
-                    # =====================================
+        # -------------------------------------------------
+        # DISPLAY ANSWER
+        # -------------------------------------------------
 
-                    except Exception as e:
+        st.divider()
 
-                        st.error(
-                            "The AI service could not "
-                            "generate the answer."
-                        )
+        st.subheader(
+            "🤖 AI Answer"
+        )
 
-                        st.info(
-                            "Here is the relevant "
-                            "NLP knowledge retrieved "
-                            "from the knowledge base:"
-                        )
+        st.write(answer)
 
-                        st.write(context)
 
-                        st.caption(
-                            f"Error: {e}"
-                        )
+        # -------------------------------------------------
+        # KNOWLEDGE USED
+        # -------------------------------------------------
+
+        with st.expander(
+            "📚 View Knowledge Used"
+        ):
+
+            st.write(
+                "The following information "
+                "was retrieved from the NLP knowledge base:"
+            )
+
+            st.write(context)
+
+
+    # -----------------------------------------------------
+    # ERROR HANDLING
+    # -----------------------------------------------------
+
+    except Exception as e:
+
+        st.error(
+            "The AI service could not generate the answer."
+        )
+
+        st.info(
+            "Here is the relevant NLP knowledge "
+            "retrieved from the knowledge base:"
+        )
+
+        st.write(context)
+
+        st.caption(
+            f"Error: {e}"
+        )
+
+
+# =========================================================
+# PROCESS NORMAL QUESTION
+# =========================================================
+
+if ask_button:
+
+    if not query.strip():
+
+        st.warning(
+            "Please enter a question."
+        )
+
+    else:
+
+        # Save recent question
+        if query not in st.session_state.recent_questions:
+
+            st.session_state.recent_questions.insert(
+                0,
+                query
+            )
+
+        # Keep only latest 5
+        st.session_state.recent_questions = (
+            st.session_state.recent_questions[:5]
+        )
+
+        generate_nlp_answer(query)
+
+
+# =========================================================
+# PROCESS LEARN TOPIC
+# =========================================================
+
+if learn_button:
+
+    topic_question = f"Explain {selected_topic}"
+
+    st.session_state.question_input = topic_question
+
+    # Save topic in recent questions
+    if topic_question not in st.session_state.recent_questions:
+
+        st.session_state.recent_questions.insert(
+            0,
+            topic_question
+        )
+
+    st.session_state.recent_questions = (
+        st.session_state.recent_questions[:5]
+    )
+
+    st.subheader(
+        f"📖 Learning: {selected_topic}"
+    )
+
+    generate_nlp_answer(topic_question)
 
 
 # =========================================================
